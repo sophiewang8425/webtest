@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SecureScan — File Scanner</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #111118;
+      --border: #1e1e2e;
+      --accent: #00ff88;
+      --accent2: #ff3366;
+      --text: #e8e8f0;
+      --muted: #555570;
+      --font-mono: 'Space Mono', monospace;
+      --font-display: 'Syne', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-display);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 20px;
+      background-image:
+        radial-gradient(ellipse at 20% 20%, rgba(0,255,136,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 80%, rgba(255,51,102,0.04) 0%, transparent 60%);
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 56px;
+      animation: fadeDown 0.6s ease both;
+    }
+
+    header .badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 3px;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    h1 {
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -2px;
+      line-height: 1;
+      background: linear-gradient(135deg, #e8e8f0 40%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.95rem;
+      font-family: var(--font-mono);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 680px;
+      animation: fadeUp 0.6s ease 0.1s both;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 52px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .drop-zone:hover, .drop-zone.dragging {
+      border-color: var(--accent);
+      background: rgba(0,255,136,0.04);
+    }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon {
+      font-size: 2.5rem;
+      margin-bottom: 16px;
+      display: block;
+    }
+
+    .drop-zone h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .drop-zone p {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    #file-name {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--accent);
+      margin-top: 10px;
+      min-height: 18px;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      margin-top: 24px;
+      padding: 16px;
+      background: var(--accent);
+      color: #0a0a0f;
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1rem;
+      letter-spacing: 1px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: #00ffaa;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 30px rgba(0,255,136,0.25);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Loading */
+    #loading {
+      display: none;
+      text-align: center;
+      padding: 32px 0 8px;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    #loading p {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    /* Results */
+    #results {
+      display: none;
+      margin-top: 32px;
+      animation: fadeUp 0.4s ease both;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .verdict {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .verdict.clean { color: var(--accent); }
+    .verdict.danger { color: var(--accent2); }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .stat-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .stat-box .num {
+      font-size: 2rem;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      line-height: 1;
+    }
+
+    .stat-box .label {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-top: 6px;
+    }
+
+    .stat-box.malicious .num { color: var(--accent2); }
+    .stat-box.suspicious .num { color: #ffaa00; }
+    .stat-box.clean .num { color: var(--accent); }
+
+    .detections {
+      background: var(--bg);
+      border: 1px solid rgba(255,51,102,0.2);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+
+    .detections h4 {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--accent2);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 12px;
+    }
+
+    .detection-tag {
+      display: inline-block;
+      background: rgba(255,51,102,0.1);
+      border: 1px solid rgba(255,51,102,0.2);
+      color: var(--accent2);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      padding: 4px 10px;
+      border-radius: 4px;
+      margin: 3px;
+    }
+
+    .btn-explain {
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .btn-explain:hover {
+      background: var(--accent);
+      color: #0a0a0f;
+    }
+
+    #ai-explanation {
+      display: none;
+      margin-top: 20px;
+      background: linear-gradient(135deg, rgba(0,255,136,0.05), rgba(0,255,136,0.02));
+      border: 1px solid rgba(0,255,136,0.2);
+      border-radius: 10px;
+      padding: 20px;
+      font-size: 0.92rem;
+      line-height: 1.7;
+      color: var(--text);
+      animation: fadeUp 0.4s ease both;
+    }
+
+    #ai-explanation .ai-badge {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--accent);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="badge">⬡ Powered by VirusTotal + Gemini AI</span>
+    <h1>SecureScan</h1>
+    <p>Upload a file. We'll tell you if it's safe.</p>
+  </header>
+
+  <div class="card">
+    <div class="drop-zone" id="drop-zone">
+      <input type="file" id="file-input" />
+      <span class="drop-icon">📁</span>
+      <h3>Drop your file here</h3>
+      <p>or click to browse · max 32MB</p>
+      <div id="file-name"></div>
+    </div>
+
+    <button class="btn" id="scan-btn" disabled>Scan File</button>
+
+    <div id="loading">
+      <div class="spinner"></div>
+      <p id="loading-msg">Uploading to VirusTotal...</p>
+    </div>
+
+    <div id="results">
+      <div class="result-header">
+        <div class="verdict" id="verdict-text"></div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-box malicious">
+          <div class="num" id="stat-malicious">0</div>
+          <div class="label">Malicious</div>
+        </div>
+        <div class="stat-box suspicious">
+          <div class="num" id="stat-suspicious">0</div>
+          <div class="label">Suspicious</div>
+        </div>
+        <div class="stat-box clean">
+          <div class="num" id="stat-harmless">0</div>
+          <div class="label">Clean</div>
+        </div>
+        <div class="stat-box">
+          <div class="num" id="stat-undetected">0</div>
+          <div class="label">Undetected</div>
+        </div>
+      </div>
+
+      <div class="detections" id="detections-box" style="display:none">
+        <h4>🚨 Flagged by</h4>
+        <div id="detection-tags"></div>
+      </div>
+
+      <button class="btn-explain" id="explain-btn">✦ Explain in plain English</button>
+
+      <div id="ai-explanation">
+        <span class="ai-badge">✦ Gemini AI</span>
+        <p id="explanation-text"></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let scanData = null;
+
+    const fileInput = document.getElementById('file-input');
+    const fileName = document.getElementById('file-name');
+    const scanBtn = document.getElementById('scan-btn');
+    const loading = document.getElementById('loading');
+    const loadingMsg = document.getElementById('loading-msg');
+    const results = document.getElementById('results');
+    const explainBtn = document.getElementById('explain-btn');
+    const aiExplanation = document.getElementById('ai-explanation');
+    const dropZone = document.getElementById('drop-zone');
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) {
+        fileName.textContent = '📎 ' + fileInput.files[0].name;
+        scanBtn.disabled = false;
+      }
+    });
+
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragging'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragging');
+      fileInput.files = e.dataTransfer.files;
+      fileInput.dispatchEvent(new Event('change'));
+    });
+
+    scanBtn.addEventListener('click', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      results.style.display = 'none';
+      aiExplanation.style.display = 'none';
+      loading.style.display = 'block';
+      scanBtn.disabled = true;
+      loadingMsg.textContent = 'Uploading to VirusTotal...';
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        loadingMsg.textContent = 'Scanning... this takes ~30 seconds ⏳';
+        const res = await fetch('/scan', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (data.error) {
+          alert('Error: ' + data.error);
+          return;
+        }
+
+        scanData = data;
+        loading.style.display = 'none';
+        results.style.display = 'block';
+
+        const { stats, detections } = data;
+        document.getElementById('stat-malicious').textContent = stats.malicious || 0;
+        document.getElementById('stat-suspicious').textContent = stats.suspicious || 0;
+        document.getElementById('stat-harmless').textContent = stats.harmless || 0;
+        document.getElementById('stat-undetected').textContent = stats.undetected || 0;
+
+        const verdictEl = document.getElementById('verdict-text');
+        if (stats.malicious > 0) {
+          verdictEl.textContent = '⚠️ Threat Detected';
+          verdictEl.className = 'verdict danger';
+        } else if (stats.suspicious > 0) {
+          verdictEl.textContent = '⚠️ Suspicious File';
+          verdictEl.className = 'verdict danger';
+        } else {
+          verdictEl.textContent = '✅ File Looks Clean';
+          verdictEl.className = 'verdict clean';
+        }
+
+        const detectionsBox = document.getElementById('detections-box');
+        const detectionTags = document.getElementById('detection-tags');
+        detectionTags.innerHTML = '';
+        if (Object.keys(detections).length > 0) {
+          detectionsBox.style.display = 'block';
+          for (const engine of Object.keys(detections)) {
+            const tag = document.createElement('span');
+            tag.className = 'detection-tag';
+            tag.textContent = engine;
+            detectionTags.appendChild(tag);
+          }
+        } else {
+          detectionsBox.style.display = 'none';
+        }
+
+      } catch (err) {
+        alert('Something went wrong. Check your API keys and try again.');
+      } finally {
+        loading.style.display = 'none';
+        scanBtn.disabled = false;
+      }
+    });
+
+    explainBtn.addEventListener('click', async () => {
+      if (!scanData) return;
+      explainBtn.disabled = true;
+      explainBtn.textContent = '✦ Asking Gemini...';
+
+      try {
+        const res = await fetch('/explain', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(scanData)
+        });
+        const data = await res.json();
+        document.getElementById('explanation-text').textContent = data.explanation;
+        aiExplanation.style.display = 'block';
+      } catch (err) {
+        alert('Could not get AI explanation.');
+      } finally {
+        explainBtn.disabled = false;
+        explainBtn.textContent = '✦ Explain in plain English';
+      }
+    });
+  </script>
+</body>
+</html>
